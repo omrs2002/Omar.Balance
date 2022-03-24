@@ -1,6 +1,9 @@
 ﻿using Microsoft.OpenApi.Models;
 using Omar.Balance.Data;
+using Omar.Balance.Extensions;
 using Omar.Balance.Localization;
+using Omar.Balance.Swagger;
+using System.Text;
 using Volo.Abp;
 using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
@@ -31,6 +34,8 @@ using Volo.Abp.PermissionManagement;
 using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.PermissionManagement.HttpApi;
 using Volo.Abp.PermissionManagement.Identity;
+using Volo.Abp.Security;
+using Volo.Abp.Security.Encryption;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.Web;
@@ -92,7 +97,11 @@ namespace Omar.Balance;
     typeof(AbpSettingManagementApplicationModule),
     typeof(AbpSettingManagementEntityFrameworkCoreModule),
     typeof(AbpSettingManagementHttpApiModule),
-    typeof(AbpSettingManagementWebModule)
+    typeof(AbpSettingManagementWebModule),
+
+        // Setting Management module security
+    typeof(AbpSecurityModule)
+
 )]
 public class BalanceModule : AbpModule
 {
@@ -124,6 +133,16 @@ public class BalanceModule : AbpModule
         ConfigureLocalization();
         ConfigureAuthentication(context.Services, configuration);
         ConfigureEfCore(context);
+
+        Configure<AbpStringEncryptionOptions>(opts =>
+        {
+            opts.DefaultPassPhrase = "gsKnGZ041HLL4IM8";
+            opts.DefaultSalt = Encoding.ASCII.GetBytes("hgt!16kl");
+            opts.InitVectorBytes = Encoding.ASCII.GetBytes("jkE49230Tf093b42");
+            opts.Keysize = 256;
+        });
+
+
     }
 
     private void ConfigureMultiTenancy()
@@ -216,7 +235,12 @@ public class BalanceModule : AbpModule
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = "Balance API", Version = "v1" });
                 options.DocInclusionPredicate((docName, description) => true);
-                options.CustomSchemaIds(type => type.FullName);
+                //options.CustomSchemaIds(type => type.FullName);
+                options.CustomSchemaIds(type => type.FriendlyId().Replace("[", "Of").Replace("]", ""));
+                options.CustomOperationIds(options => $"{options.ActionDescriptor.RouteValues["controller"]}{options.ActionDescriptor.RouteValues["action"]}");
+                options.DocumentFilter<RemoveUnusedEndpointFilter>();
+                options.SchemaFilter<RemoveUnusedSchemaFilter>();
+
             }
         );
     }
